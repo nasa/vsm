@@ -1,39 +1,13 @@
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 from operator import attrgetter
+from socket import inet_ntoa
 from urllib import urlopen, urlencode
 from urlparse import urlparse, parse_qs
 from xml.etree import ElementTree
 from zeroconf import zeroconf
 from zeroconf.zeroconf import ServiceBrowser, Zeroconf
-import socket
 
-rcs_port = 5451
 wcs_port = 8080
-
-def read_char(socket):
-    return socket.recv(1)
-
-def read_rcs_response(socket):
-    response = ''
-    char = read_char(socket)
-    while (ord(char) != 4):
-        response += str(char)
-        char = read_char(socket)
-    return response
-
-def create_rcs_connection(host='localhost', port=rcs_port):
-    connection = socket.socket()
-    connection.connect((host, port))
-    read_rcs_response(connection)
-    return connection
-
-def send_rcs_command(command, host='localhost', port=rcs_port):
-    connection = create_rcs_connection(host, port)
-    connection.sendall(command + '\n')
-    return connection
-
-def send_rcs_inquiry(command, host='localhost', port=rcs_port):
-    return read_rcs_response(send_command(command, host, port))
 
 def send_wcs_command(command, host='localhost', port=wcs_port):
     page = urlopen('http://' + str(host) + ':' + str(port) + '/command',
@@ -73,7 +47,7 @@ def get_scene(host='localhost', port=wcs_port):
 
 class WebCommandingServer(object):
     def __init__(self, address, port):
-        self.address = socket.inet_ntoa(address)
+        self.address = inet_ntoa(address)
         self.port = port
         self.video_address = 'http://' + self.address + ':' + str(self.port) + '/video'
         self.cameras = get_cameras(self.address, port)
@@ -96,9 +70,6 @@ class WebCommandingServer(object):
             if self.is_view_visible(view):
                 set_camera(view, camera, self.address, self.port)
                 return
-
-    def __repr__(self):
-        return str(vars(self))
 
 class VideoStreamManager(HTTPServer):
 
