@@ -33,18 +33,6 @@ def get_camera(view, host='localhost', port=wcs_port):
 def set_camera(view, camera, host='localhost', port=wcs_port):
     send_wcs_command('doug.view ' + view + ' set -camera ' + camera, host, port)
 
-def get_input(host='localhost', port=wcs_port):
-    return send_wcs_command('doug.cmd get_input', host, port)
-
-def get_load(host='localhost', port=wcs_port):
-    return send_wcs_command('doug.cmd get_load', host, port)
-
-def get_display(host='localhost', port=wcs_port):
-    return send_wcs_command('doug.cmd get_display', host, port)
-
-def get_scene(host='localhost', port=wcs_port):
-    return send_wcs_command('doug.cmd get_scene', host, port)
-
 class WebCommandingServer(object):
     def __init__(self, address, port):
         self.address = inet_ntoa(address)
