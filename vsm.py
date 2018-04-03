@@ -1,17 +1,26 @@
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 from operator import attrgetter
+from os import curdir, sep
 from socket import inet_ntoa
-from urllib import urlopen, urlencode
+from urllib import urlopen, urlencode, pathname2url
 from urlparse import urlparse, parse_qs
 from xml.etree import ElementTree
+from xml.etree.ElementTree import Element, SubElement
+from xml.dom import minidom
 from zeroconf import zeroconf
 from zeroconf.zeroconf import ServiceBrowser, Zeroconf
+import json
+import socket
+import sys
 
 wcs_port = 8080
 
 def send_wcs_command(command, host='localhost', port=wcs_port):
+    import time
+    start = time.time()
     page = urlopen('http://' + str(host) + ':' + str(port) + '/command',
                    urlencode({'edge_command': command}))
+    print time.time() - start
     return ElementTree.fromstring(page.read()).find('result').text
 
 def get_client_count(host='localhost', port=wcs_port):
@@ -40,7 +49,6 @@ class WebCommandingServer(object):
         self.video_address = 'http://' + self.address + ':' + str(self.port) + '/video'
         self.cameras = get_cameras(self.address, port)
         self.views = get_views(self.address, port)
-        self.update()
 
     def update(self):
         self.num_clients = get_client_count(self.address, self.port)
@@ -59,91 +67,140 @@ class WebCommandingServer(object):
                 set_camera(view, camera, self.address, self.port)
                 return
 
-class VideoStreamManager(HTTPServer):
+class RequestHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        request = urlparse(self.path)
 
-    class RequestHandler(BaseHTTPRequestHandler):
-        def do_GET(self):
-            request = urlparse(self.path)
+        if request.path.endswith('.xsl'):
+            return self.send_xsl_page(request.path)
 
-            if request.path != '/':
-                self.send_error(404)
-                return
+        if request.path == '/status':
+            return self.send_status_page()
 
-            if not request.query:
-                return self.send_status_page()
+        if request.path == '/streams':
+            return self.send_streams_page()
 
-            query = parse_qs(request.query)
+        if request.path.startswith('/streams/'):
+            return self.send_stream(request)
 
-            try:
-                stream = query['stream'][0]
-            except:
-                self.send_error(400, 'Query string must contain "stream=". For example: <address>?stream=camera1')
-                return
+        return self.send_error(404)
 
-            exists, wcs = self.server.get_wcs_for_camera(stream)
+    def send_status_page(self):
+        self.send_response(200)
+        self.end_headers()
+        root = Element('web_commanding_servers')
+        for key, servers in self.server.web_commanding_servers.iteritems():
+            group = SubElement(root, 'group', type=key)
+            for wcs in servers.values():
+                wcs_element = SubElement(group, 'wcs', host=socket.gethostbyaddr(wcs.address)[0], port=str(wcs.port))
+                for camera in wcs.cameras:
+                    SubElement(wcs_element, 'camera').text = camera
+        self.send_xml(root, 'status')
 
-            if not exists:
-                self.send_error(404, 'No such camera exists')
-                return
+    def send_streams_page(self):
+        self.send_response(200)
+        self.end_headers()
+        root = Element('streams')
 
-            if not wcs:
-                self.send_error(503, 'This camera is unavailable because all EDGE clients capable of rendering it are already rendering a different camera for another client')
-                return
+        for streams in {wcs.cameras for wcs in self.server.web_commanding_servers['Active'].values()}:
+            stream_set = SubElement(root, 'set')
+            for stream in streams:
+                SubElement(stream_set, 'stream', url=self.path + '/' + stream).text = stream
+        self.send_xml(root, 'streams')
 
-            redirect = wcs.video_address
-            query.pop('stream')
-            if query:
-                redirect += '?' + urlencode(query, doseq=True)
-            self.send_response(307)
-            self.send_header('Location', redirect)
-            self.end_headers()
+    def send_xml(self, root, stylesheet):
+        xml = minidom.parseString(ElementTree.tostring(root))
+        stylesheet = xml.createProcessingInstruction(
+            'xml-stylesheet', 'type="text/xsl" href="xsl/' + stylesheet + '.xsl"')
+        xml.insertBefore(stylesheet, xml.firstChild)
+        self.wfile.write(xml.toprettyxml(encoding='utf8'))
 
-        def get_link_for_camera(self, camera):
-            return '<a href="' + self.path + '?' + urlencode({'stream': camera}) + '">' + camera + '<a><br/>'
+    def send_stream(self, request):
+        exists, wcs = self.server.get_wcs_for_camera(request.path[9:])
 
-        def send_status_page(self):
+        if not exists:
+            self.send_error(404, 'No such camera exists')
+            return
+
+        if not wcs:
+            self.send_error(503,
+                'This camera is unavailable because all EDGE clients capable '
+                'of rendering it are already rendering a different camera for '
+                'another client')
+            return
+
+        redirect = wcs.video_address
+        if request.query:
+            redirect += '?' + urlencode(query, doseq=True)
+        self.send_response(307)
+        self.send_header('Location', redirect)
+        self.end_headers()
+
+    def send_xsl_page(self, path):
+        try:
+            xsl = open(curdir + sep + path)
             self.send_response(200)
             self.end_headers()
-            self.wfile.write('<html><head><title>Video Stream Manager</title></head><body>')
-            camera_sets = set()
-            for cameras in {wcs.cameras for wcs in self.server.web_commanding_servers.values()}:
-                self.wfile.write('<p>')
-                for camera in cameras:
-                    self.wfile.write(self.get_link_for_camera(camera))
-                self.wfile.write('</p>')
-            self.wfile.write('</body></html>')
+            self.wfile.write(xsl.read())
+        except Exception, e:
+            self.send_error(404, str(e))
 
-    def __init__(self, port=12345):
-        HTTPServer.__init__(self, ('localhost', port), self.RequestHandler)
-        self.web_commanding_servers = {}
+class VideoStreamManager(HTTPServer):
+
+    def __init__(self, config_file=None):
+        if config_file:
+            with open(config_file) as config_json:
+                self.configuration = json.load(config_json)
+            if 'port' not in self.configuration:
+                self.configuration['port'] = 12345
+            else:
+                self.configuration['port'] = int(self.configuration['port'])
+        else:
+            self.configuration = {'port': 12345}
+
+        for machine_list in ['whitelist', 'blacklist']:
+            if machine_list in self.configuration:
+                self.configuration[machine_list] = [socket.gethostbyname(name)
+                    for name in self.configuration[machine_list]]
+
+        HTTPServer.__init__(self, ('localhost', self.configuration['port']), RequestHandler)
+        self.web_commanding_servers = {'Active': {}, 'Incompatible': {}, 'Blacklisted': {}}
         self.browser = ServiceBrowser(Zeroconf(), '_doug_wcs._tcp.local.', self)
         self.serve_forever()
 
-    def __del__(self):
-        browser.close()
+    def is_blacklisted(self, wcs):
+        if 'whitelist' in self.configuration:
+            return wcs.address not in self.configuration['whitelist']
+        return 'blacklist' in self.configuration and wcs.address in self.configuration['blacklist']
 
     def add_service(self, zeroconf, service, name):
         info = zeroconf.get_service_info(service, name)
         if info:
-            self.web_commanding_servers[name] = WebCommandingServer(info.address, info.port)
-            print 'Added ' + name
+            wcs = WebCommandingServer(info.address, info.port)
+            if self.is_blacklisted(wcs):
+                key = 'Blacklisted'
+            else:
+                try:
+                    wcs.update()
+                    key = 'Active'
+                except:
+                    key = 'Incompatible'
+            self.web_commanding_servers[key][name] = wcs
 
     def remove_service(self, zeroconf, service, name):
-        try:
-            self.web_commanding_servers.pop(name)
-            print 'Removed ' + name
-        except:
-            pass
+        for servers in self.web_commanding_servers.values():
+            servers.pop(name, None)
 
     def update_web_commanding_servers(self):
-        for _, wcs in self.web_commanding_servers.iteritems():
+        for _, wcs in self.web_commanding_servers['Active'].iteritems():
             wcs.update()
 
     def get_wcs_for_camera(self, camera):
         self.update_web_commanding_servers()
 
         # Find servers with the camera
-        servers = [wcs for wcs in self.web_commanding_servers.values() if camera in wcs.cameras]
+        servers = [wcs for wcs in self.web_commanding_servers['Active'].values()
+                   if camera in wcs.cameras]
 
         # No such camera exists
         if not servers:
@@ -179,4 +236,7 @@ class VideoStreamManager(HTTPServer):
         return True, None
 
 if __name__ == '__main__':
-    VideoStreamManager()
+    if len(sys.argv) > 1:
+        VideoStreamManager(sys.argv[1])
+    else:
+        VideoStreamManager()
