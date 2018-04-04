@@ -9,6 +9,7 @@ from xml.etree.ElementTree import Element, SubElement
 from xml.dom import minidom
 from zeroconf import zeroconf
 from zeroconf.zeroconf import ServiceBrowser, Zeroconf
+import ast
 import json
 import socket
 import sys
@@ -16,11 +17,8 @@ import sys
 wcs_port = 8080
 
 def send_wcs_command(command, host='localhost', port=wcs_port):
-    import time
-    start = time.time()
     page = urlopen('http://' + str(host) + ':' + str(port) + '/command',
                    urlencode({'edge_command': command}))
-    print time.time() - start
     return ElementTree.fromstring(page.read()).find('result').text
 
 def get_client_count(host='localhost', port=wcs_port):
@@ -28,6 +26,19 @@ def get_client_count(host='localhost', port=wcs_port):
 
 def get_cameras(host='localhost', port=wcs_port):
     return tuple(send_wcs_command('doug.scene get -cameras', host, port).split())
+
+def get_update(host='localhost', port=wcs_port):
+    command = """
+        set result "\["
+        foreach view [doug.display get -views] {
+            set view [lindex [split $view '.'] end]
+            if {[string first "HIDE" [split [doug.view $view get -flags]]] == -1} {
+                append result '[doug.view $view get -camera]',
+            }
+        }
+        return "[get_global_var wcs_num_clients], $result]"
+    """
+    return ast.literal_eval(send_wcs_command(command, host, port))
 
 def get_views(host='localhost', port=wcs_port):
     return [view.split('.')[1] for view in send_wcs_command('doug.display get -views', host, port).split()]
@@ -39,8 +50,17 @@ def is_view_visible(view, host='localhost', port=wcs_port):
 def get_camera(view, host='localhost', port=wcs_port):
     return send_wcs_command('doug.view ' + view + ' get -camera', host, port)
 
-def set_camera(view, camera, host='localhost', port=wcs_port):
-    send_wcs_command('doug.view ' + view + ' set -camera ' + camera, host, port)
+def set_camera(camera, host='localhost', port=wcs_port):
+    command = """
+        foreach view [doug.display get -views] {
+            set view [lindex [split $view '.'] end]
+            if {[string first "HIDE" [split [doug.view $view get -flags]]] == -1} {
+                doug.view $view set -camera %s
+                return
+            }
+        }
+    """
+    send_wcs_command(command % camera, host, port)
 
 class WebCommandingServer(object):
     def __init__(self, address, port):
@@ -49,11 +69,11 @@ class WebCommandingServer(object):
         self.video_address = 'http://' + self.address + ':' + str(self.port) + '/video'
         self.cameras = get_cameras(self.address, port)
         self.views = get_views(self.address, port)
+        self.num_clients = 'unsupported'
+        self.rendered_cameras = []
 
     def update(self):
-        self.num_clients = get_client_count(self.address, self.port)
-        self.visible_cameras = [self.get_camera(view) for view in self.views
-                                if self.is_view_visible(view)]
+        self.num_clients, self.rendered_cameras = get_update(self.address, self.port)
 
     def is_view_visible(self, view):
         return is_view_visible(view, self.address, self.port)
@@ -62,10 +82,7 @@ class WebCommandingServer(object):
         return get_camera(view, self.address, self.port)
 
     def set_camera(self, camera):
-        for view in self.views:
-            if self.is_view_visible(view):
-                set_camera(view, camera, self.address, self.port)
-                return
+        set_camera(camera, self.address, self.port)
 
 class RequestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -92,9 +109,13 @@ class RequestHandler(BaseHTTPRequestHandler):
         for key, servers in self.server.web_commanding_servers.iteritems():
             group = SubElement(root, 'group', type=key)
             for wcs in servers.values():
-                wcs_element = SubElement(group, 'wcs', host=socket.gethostbyaddr(wcs.address)[0], port=str(wcs.port))
+                try:
+                    wcs.update()
+                except:
+                    pass
+                wcs_element = SubElement(group, 'wcs', host=socket.gethostbyaddr(wcs.address)[0], port=str(wcs.port), num_clients=str(wcs.num_clients))
                 for camera in wcs.cameras:
-                    SubElement(wcs_element, 'camera').text = camera
+                    SubElement(wcs_element, 'camera', rendered=str(camera in wcs.rendered_cameras)).text = camera
         self.send_xml(root, 'status')
 
     def send_streams_page(self):
@@ -124,9 +145,9 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         if not wcs:
             self.send_error(503,
-                'This camera is unavailable because all EDGE clients capable '
-                'of rendering it are already rendering a different camera for '
-                'another client')
+                'This camera is temporarily unavailable because all EDGE '
+                'clients capable of rendering it are already rendering '
+                'different cameras for other clients')
             return
 
         redirect = wcs.video_address
@@ -177,14 +198,14 @@ class VideoStreamManager(HTTPServer):
         info = zeroconf.get_service_info(service, name)
         if info:
             wcs = WebCommandingServer(info.address, info.port)
-            if self.is_blacklisted(wcs):
-                key = 'Blacklisted'
-            else:
-                try:
-                    wcs.update()
+            try:
+                wcs.update()
+                if self.is_blacklisted(wcs):
+                    key = 'Blacklisted'
+                else:
                     key = 'Active'
-                except:
-                    key = 'Incompatible'
+            except:
+                key = 'Incompatible'
             self.web_commanding_servers[key][name] = wcs
 
     def remove_service(self, zeroconf, service, name):
@@ -207,7 +228,7 @@ class VideoStreamManager(HTTPServer):
             return False, None
 
         # Filter out multi-view servers
-        servers = [wcs for wcs in servers if len(wcs.visible_cameras) == 1]
+        servers = [wcs for wcs in servers if len(wcs.rendered_cameras) == 1]
 
         # Camera exists, but no server can render it individually
         if not servers:
@@ -216,7 +237,7 @@ class VideoStreamManager(HTTPServer):
         # Look for servers already rendering the camera, sorted descendingly
         # by number of clients
         rendering_servers = sorted(
-            [wcs for wcs in servers if camera in wcs.visible_cameras],
+            [wcs for wcs in servers if camera in wcs.rendered_cameras],
             key=attrgetter('num_clients'),
             reverse=True)
 

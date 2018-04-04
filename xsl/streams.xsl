@@ -12,6 +12,7 @@ xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
             <a href="{@url}">
               <xsl:value-of select="."/>
             </a>
+            <xsl:text> | </xsl:text>
           </xsl:for-each>
         </p>
       </xsl:for-each>
