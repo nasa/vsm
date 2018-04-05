@@ -91,6 +91,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if request.path.endswith('.xsl'):
             return self.send_xsl_page(request.path)
 
+        if request.path == '/':
+            return self.send_landing_page()
+
         if request.path == '/status':
             return self.send_status_page()
 
@@ -101,6 +104,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             return self.send_stream(request)
 
         return self.send_error(404)
+
+    def send_landing_page(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write('<a href="status">status</a></br>')
+        self.wfile.write('<a href="streams">streams</a>')
+
 
     def send_status_page(self):
         self.send_response(200)
