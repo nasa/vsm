@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 from operator import attrgetter
 from os import curdir, sep
