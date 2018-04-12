@@ -77,12 +77,6 @@ class WebCommandingServer(object):
     def update(self):
         self.num_clients, self.rendered_cameras = get_update(self.address, self.port)
 
-    def is_view_visible(self, view):
-        return is_view_visible(view, self.address, self.port)
-
-    def get_camera(self, view):
-        return get_camera(view, self.address, self.port)
-
     def set_camera(self, camera):
         set_camera(camera, self.address, self.port)
 
@@ -112,7 +106,6 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write('<a href="status">status</a></br>')
         self.wfile.write('<a href="streams">streams</a>')
-
 
     def send_status_page(self):
         self.send_response(200)
