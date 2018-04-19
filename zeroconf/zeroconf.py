@@ -1486,7 +1486,7 @@ class ServiceInfo(object):
 
         try:
             zc.add_listener(self, DNSQuestion(self.name, _TYPE_ANY, _CLASS_IN))
-            while None in (self.server, self.address, self.text):
+            while None in (self.server, self.address):
                 if last <= now:
                     return False
                 if next_ <= now:
