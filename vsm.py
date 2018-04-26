@@ -201,7 +201,7 @@ class VideoStreamManager(HTTPServer):
         HTTPServer.__init__(self, ('localhost', self.configuration['port']), RequestHandler)
         self.web_commanding_servers = {'Active': {}, 'Incompatible': {}, 'Blacklisted': {}}
         self.browser = ServiceBrowser(Zeroconf(), '_doug_wcs._tcp.local.', self)
-        logging.info('VSM running on port {}'.format(self.configuration['port']))
+        logging.info('VSM running at http://{}:{}'.format(*self.server_address))
         self.serve_forever()
 
     def is_blacklisted(self, wcs):
