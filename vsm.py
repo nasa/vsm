@@ -14,10 +14,11 @@ from zeroconf.zeroconf import ServiceBrowser, Zeroconf
 import ast
 import json
 import logging
+import os
 import socket
 import sys
 
-logging.basicConfig(filename='log.txt', level=logging.DEBUG, format='[%(asctime)s.%(msecs)03d %(levelname)s] %(message)s', datefmt='%m/%d/%Y %I:%M:%S')
+logging.basicConfig(filename=os.path.dirname(os.path.realpath(__file__)) + sep + 'log.txt', level=logging.DEBUG, format='[%(asctime)s.%(msecs)03d %(levelname)s] %(message)s', datefmt='%m/%d/%Y %I:%M:%S')
 
 wcs_port = 8080
 
