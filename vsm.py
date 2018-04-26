@@ -1,11 +1,6 @@
 #!/usr/bin/env python
 
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
-from operator import attrgetter
-from os import curdir, sep
-from socket import inet_ntoa
-from urllib import urlopen, urlencode, pathname2url
-from urlparse import urlparse, parse_qs
 from xml.etree import ElementTree
 from xml.etree.ElementTree import Element, SubElement
 from xml.dom import minidom
@@ -14,17 +9,20 @@ from zeroconf.zeroconf import ServiceBrowser, Zeroconf
 import ast
 import json
 import logging
+import operator
 import os
 import socket
 import sys
+import urllib
+import urlparse
 
-logging.basicConfig(filename=os.path.dirname(os.path.realpath(__file__)) + sep + 'log.txt', level=logging.DEBUG, format='[%(asctime)s.%(msecs)03d %(levelname)s] %(message)s', datefmt='%m/%d/%Y %I:%M:%S')
+logging.basicConfig(filename=os.path.dirname(os.path.realpath(__file__)) + os.sep + 'log.txt', level=logging.DEBUG, format='[%(asctime)s.%(msecs)03d %(levelname)s] %(message)s', datefmt='%m/%d/%Y %I:%M:%S')
 
 wcs_port = 8080
 
 def send_wcs_command(command, host='localhost', port=wcs_port):
-    page = urlopen('http://' + str(host) + ':' + str(port) + '/command',
-                   urlencode({'edge_command': command}))
+    page = urllib.urlopen('http://' + str(host) + ':' + str(port) + '/command',
+                          urllib.urlencode({'edge_command': command}))
     return ElementTree.fromstring(page.read()).find('result').text
 
 def get_client_count(host='localhost', port=wcs_port):
@@ -72,7 +70,7 @@ def set_camera(camera, host='localhost', port=wcs_port):
 class WebCommandingServer(object):
 
     def __init__(self, address, port):
-        self.address = inet_ntoa(address)
+        self.address = socket.inet_ntoa(address)
         self.port = port
         self.video_address = 'http://' + self.address + ':' + str(self.port) + '/video'
         self.cameras = get_cameras(self.address, port)
@@ -92,7 +90,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         logging.debug('%s - %s' % (self.client_address[0], format%args))
 
     def do_GET(self):
-        request = urlparse(self.path)
+        request = urlparse.urlparse(self.path)
 
         if request.path.endswith('.xsl'):
             return self.send_xsl_page(request.path)
@@ -167,7 +165,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         redirect = wcs.video_address
         if request.query:
-            redirect += '?' + urlencode(query, doseq=True)
+            redirect += '?' + urllib.urlencode(query, doseq=True)
         self.send_response(307)
         self.send_header('Location', redirect)
         self.end_headers()
@@ -175,7 +173,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def send_xsl_page(self, path):
         try:
-            xsl = open(curdir + sep + path)
+            xsl = open(os.curdir + os.sep + path)
             self.send_response(200)
             self.end_headers()
             self.wfile.write(xsl.read())
@@ -257,7 +255,7 @@ class VideoStreamManager(HTTPServer):
         # by number of clients
         rendering_servers = sorted(
             [wcs for wcs in servers if camera in wcs.rendered_cameras],
-            key=attrgetter('num_clients'),
+            key=operator.attrgetter('num_clients'),
             reverse=True)
 
         # Return the server, if any, with the most clients
