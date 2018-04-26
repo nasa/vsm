@@ -13,8 +13,11 @@ from zeroconf import zeroconf
 from zeroconf.zeroconf import ServiceBrowser, Zeroconf
 import ast
 import json
+import logging
 import socket
 import sys
+
+logging.basicConfig(filename='log.txt', level=logging.DEBUG, format='[%(asctime)s.%(msecs)03d %(levelname)s] %(message)s', datefmt='%m/%d/%Y %I:%M:%S')
 
 wcs_port = 8080
 
@@ -62,9 +65,11 @@ def set_camera(camera, host='localhost', port=wcs_port):
             }
         }
     """
+    logging.info('Commanding {}:{} to render "{}"'.format(host, port, camera))
     send_wcs_command(command % camera, host, port)
 
 class WebCommandingServer(object):
+
     def __init__(self, address, port):
         self.address = inet_ntoa(address)
         self.port = port
@@ -81,6 +86,10 @@ class WebCommandingServer(object):
         set_camera(camera, self.address, self.port)
 
 class RequestHandler(BaseHTTPRequestHandler):
+
+    def log_message(self, format, *args):
+        logging.debug('%s - %s' % (self.client_address[0], format%args))
+
     def do_GET(self):
         request = urlparse(self.path)
 
@@ -161,6 +170,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_response(307)
         self.send_header('Location', redirect)
         self.end_headers()
+        logging.info('Redirecting to {}'.format(wcs.video_address))
 
     def send_xsl_page(self, path):
         try:
@@ -192,6 +202,7 @@ class VideoStreamManager(HTTPServer):
         HTTPServer.__init__(self, ('localhost', self.configuration['port']), RequestHandler)
         self.web_commanding_servers = {'Active': {}, 'Incompatible': {}, 'Blacklisted': {}}
         self.browser = ServiceBrowser(Zeroconf(), '_doug_wcs._tcp.local.', self)
+        logging.info('VSM running on port {}'.format(self.configuration['port']))
         self.serve_forever()
 
     def is_blacklisted(self, wcs):
@@ -212,10 +223,12 @@ class VideoStreamManager(HTTPServer):
             except:
                 key = 'Incompatible'
             self.web_commanding_servers[key][name] = wcs
+            logging.info('Found {} {}'.format(key, name))
 
     def remove_service(self, zeroconf, service, name):
         for servers in self.web_commanding_servers.values():
             servers.pop(name, None)
+        logging.info('Lost {}'.format(name))
 
     def update_web_commanding_servers(self):
         for _, wcs in self.web_commanding_servers['Active'].iteritems():
