@@ -230,8 +230,11 @@ class VideoStreamManager(HTTPServer):
         logging.info('Lost {}'.format(name))
 
     def update_web_commanding_servers(self):
-        for _, wcs in self.web_commanding_servers['Active'].iteritems():
-            wcs.update()
+        for name, wcs in self.web_commanding_servers['Active'].items():
+            try:
+                wcs.update()
+            except:
+                self.remove_service(None, None, name)
 
     def get_wcs_for_camera(self, camera):
         self.update_web_commanding_servers()
