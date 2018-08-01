@@ -7,6 +7,7 @@ from xml.dom import minidom
 from zeroconf import zeroconf
 from zeroconf.zeroconf import ServiceBrowser, Zeroconf
 import ast
+import inspect
 import json
 import logging
 import operator
@@ -16,7 +17,9 @@ import sys
 import urllib
 import urlparse
 
-logging.basicConfig(filename=os.path.dirname(os.path.realpath(__file__)) + os.sep + 'log.txt', level=logging.DEBUG, format='[%(asctime)s.%(msecs)03d %(levelname)s] %(message)s', datefmt='%m/%d/%Y %I:%M:%S')
+vsm_home = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
+
+logging.basicConfig(filename=vsm_home + os.sep + 'log.txt', level=logging.DEBUG, format='[%(asctime)s.%(msecs)03d %(levelname)s] %(message)s', datefmt='%m/%d/%Y %I:%M:%S')
 
 wcs_port = 8080
 
@@ -173,7 +176,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def send_xsl_page(self, path):
         try:
-            xsl = open(os.curdir + os.sep + path)
+            xsl = open(vsm_home + os.sep + path)
             self.send_response(200)
             self.end_headers()
             self.wfile.write(xsl.read())
