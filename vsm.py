@@ -198,8 +198,11 @@ class VideoStreamManager(HTTPServer):
 
         for machine_list in ['whitelist', 'blacklist']:
             if machine_list in self.configuration:
-                self.configuration[machine_list] = [socket.gethostbyname(name)
-                    for name in self.configuration[machine_list]]
+                if isinstance(self.configuration[machine_list], (str, unicode)):
+                    self.configuration[machine_list] = [socket.gethostbyname(self.configuration[machine_list])]
+                else:
+                    self.configuration[machine_list] = [socket.gethostbyname(name)
+                        for name in self.configuration[machine_list]]
 
         HTTPServer.__init__(self, ('localhost', self.configuration['port']), RequestHandler)
         self.web_commanding_servers = {'Active': {}, 'Incompatible': {}, 'Blacklisted': {}}
