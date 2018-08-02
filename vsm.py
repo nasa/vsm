@@ -187,15 +187,16 @@ class RequestHandler(BaseHTTPRequestHandler):
 class VideoStreamManager(HTTPServer):
 
     def __init__(self, config_file=None):
+        default_port = 12345
         if config_file:
             with open(config_file) as config_json:
                 self.configuration = json.load(config_json)
             if 'port' not in self.configuration:
-                self.configuration['port'] = 12345
+                self.configuration['port'] = default_port
             else:
                 self.configuration['port'] = int(self.configuration['port'])
         else:
-            self.configuration = {'port': 12345}
+            self.configuration = {'port': default_port, 'whitelist': 'localhost'}
 
         for machine_list in ['whitelist', 'blacklist']:
             if machine_list in self.configuration:
