@@ -7,6 +7,7 @@ from xml.dom import minidom
 from zeroconf import zeroconf
 from zeroconf.zeroconf import ServiceBrowser, Zeroconf
 import ast
+import ifaddr
 import inspect
 import json
 import logging
@@ -199,16 +200,25 @@ class VideoStreamManager(HTTPServer):
         for machine_list in ['whitelist', 'blacklist']:
             if machine_list in self.configuration:
                 if isinstance(self.configuration[machine_list], (str, unicode)):
-                    self.configuration[machine_list] = [socket.gethostbyname(self.configuration[machine_list])]
+                    self.configuration[machine_list] = self.resolve_name(self.configuration[machine_list])
                 else:
-                    self.configuration[machine_list] = [socket.gethostbyname(name)
-                        for name in self.configuration[machine_list]]
+                    self.configuration[machine_list] = set([entry
+                        for name in self.configuration[machine_list]
+                        for entry in self.resolve_name(name)])
 
         HTTPServer.__init__(self, ('localhost', self.configuration['port']), RequestHandler)
         self.web_commanding_servers = {'Active': {}, 'Incompatible': {}, 'Blacklisted': {}}
         self.browser = ServiceBrowser(Zeroconf(), '_doug_wcs._tcp.local.', self)
         logging.info('VSM running at http://{}:{}'.format(*self.server_address))
         self.serve_forever()
+
+    def resolve_name(self, name):
+        if name == 'localhost' or socket.gethostbyname(name) == '127.0.0.1':
+            return set([ip.ip
+                for adapter in ifaddr.get_adapters()
+                for ip in adapter.ips
+                if isinstance(ip.ip, str)])
+        return [socket.gethostbyname(name)]
 
     def is_blacklisted(self, wcs):
         if 'whitelist' in self.configuration:
