@@ -169,7 +169,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         redirect = wcs.video_address
         if request.query:
-            redirect += '?' + urllib.urlencode(query, doseq=True)
+            redirect += '?' + request.query
         self.send_response(307)
         self.send_header('Location', redirect)
         self.end_headers()
