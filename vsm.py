@@ -15,6 +15,7 @@ import operator
 import os
 import socket
 import sys
+import traceback
 import urllib
 import urlparse
 
@@ -297,4 +298,9 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         VideoStreamManager(sys.argv[1])
     else:
-        VideoStreamManager()
+        try:
+            VideoStreamManager()
+        except Exception as e:
+            sys.stdout.write('[Video Stream Manager] Failed to start: ')
+            print e.strerror
+            logging.error(traceback.format_exc())
