@@ -210,7 +210,7 @@ class VideoStreamManager(HTTPServer):
                         for name in self.configuration[machine_list]
                         for entry in self.resolve_name(name)])
 
-        HTTPServer.__init__(self, ('localhost', self.configuration['port']), RequestHandler)
+        HTTPServer.__init__(self, ('0.0.0.0', self.configuration['port']), RequestHandler)
         self.web_commanding_servers = {'Active': {}, 'Incompatible': {}, 'Blacklisted': {}}
         self.browser = ServiceBrowser(Zeroconf(), '_doug_wcs._tcp.local.', self)
         logging.info('VSM running at http://{}:{}'.format(*self.server_address))
