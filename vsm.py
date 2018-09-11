@@ -39,10 +39,12 @@ def get_cameras(host='localhost', port=wcs_port):
 def get_update(host='localhost', port=wcs_port):
     command = """
         set result "\["
-        foreach view [doug.display get -views] {
-            set view [lindex [split $view '.'] end]
-            if {[string first "HIDE" [split [doug.view $view get -flags]]] == -1} {
-                append result '[doug.view $view get -camera]',
+        if [doug.cmd get_fps != 0] {
+            foreach view [doug.display get -views] {
+                set view [lindex [split $view '.'] end]
+                if {[string first "HIDE" [split [doug.view $view get -flags]]] == -1} {
+                    append result '[doug.view $view get -camera]',
+                }
             }
         }
         return "[get_global_var wcs_num_clients], $result]"
