@@ -246,7 +246,7 @@ class VideoStreamManager(HTTPServer):
             except:
                 key = 'Incompatible'
             self.web_commanding_servers[key][name] = wcs
-            logging.info('Found {} {}'.format(key, name))
+            logging.info('Found {} {} @ {}:{}'.format(key, name, wcs.address, wcs.port))
 
     def remove_service(self, zeroconf, service, name):
         for servers in self.web_commanding_servers.values():
@@ -301,12 +301,12 @@ class VideoStreamManager(HTTPServer):
         return True, None
 
 if __name__ == '__main__':
-    if len(sys.argv) > 1:
-        VideoStreamManager(sys.argv[1])
-    else:
-        try:
+    try:
+        if len(sys.argv) > 1:
+            VideoStreamManager(sys.argv[1])
+        else:
             VideoStreamManager()
-        except Exception as e:
-            sys.stdout.write('[Video Stream Manager] Failed to start: ')
-            print e
-            logging.error(traceback.format_exc())
+    except Exception as e:
+        sys.stdout.write('[Video Stream Manager] Failed to start: ')
+        print e
+        logging.error(traceback.format_exc())
