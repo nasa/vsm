@@ -304,5 +304,5 @@ if __name__ == '__main__':
             VideoStreamManager()
         except Exception as e:
             sys.stdout.write('[Video Stream Manager] Failed to start: ')
-            print e.strerror
+            print e
             logging.error(traceback.format_exc())
