@@ -5,7 +5,7 @@ from xml.etree import ElementTree
 from xml.etree.ElementTree import Element, SubElement
 from xml.dom import minidom
 from zeroconf import zeroconf
-from zeroconf.zeroconf import ServiceBrowser, Zeroconf
+from zeroconf.zeroconf import InterfaceChoice, ServiceBrowser, Zeroconf
 import ast
 import ifaddr
 import inspect
@@ -198,8 +198,12 @@ class VideoStreamManager(HTTPServer):
                 self.configuration['port'] = default_port
             else:
                 self.configuration['port'] = int(self.configuration['port'])
+            if 'interfaces' not in self.configuration:
+                self.configuration['interfaces'] = InterfaceChoice.All
         else:
-            self.configuration = {'port': default_port, 'whitelist': 'localhost'}
+            self.configuration = {'interfaces': InterfaceChoice.All,
+                                  'port': default_port,
+                                  'whitelist': 'localhost'}
 
         for machine_list in ['whitelist', 'blacklist']:
             if machine_list in self.configuration:
@@ -212,7 +216,7 @@ class VideoStreamManager(HTTPServer):
 
         HTTPServer.__init__(self, ('0.0.0.0', self.configuration['port']), RequestHandler)
         self.web_commanding_servers = {'Active': {}, 'Incompatible': {}, 'Blacklisted': {}}
-        self.browser = ServiceBrowser(Zeroconf(), '_doug_wcs._tcp.local.', self)
+        self.browser = ServiceBrowser(Zeroconf(self.configuration['interfaces']), '_doug_wcs._tcp.local.', self)
         logging.info('VSM running at http://{}:{}'.format(*self.server_address))
         self.serve_forever()
 
