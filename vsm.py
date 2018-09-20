@@ -133,7 +133,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                     wcs.update()
                 except:
                     pass
-                wcs_element = SubElement(group, 'wcs', host=socket.gethostbyaddr(wcs.address)[0], port=str(wcs.port), num_clients=str(wcs.num_clients))
+                wcs_element = SubElement(group, 'wcs', host=socket.gethostbyaddr(wcs.address)[0] + ' (' + wcs.address + ')', port=str(wcs.port), num_clients=str(wcs.num_clients))
                 for camera in wcs.cameras:
                     SubElement(wcs_element, 'camera', rendered=str(camera in wcs.rendered_cameras)).text = camera
         self.send_xml(root, 'status')
