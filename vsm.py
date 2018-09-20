@@ -236,8 +236,8 @@ class VideoStreamManager(HTTPServer):
     def add_service(self, zeroconf, service, name):
         info = zeroconf.get_service_info(service, name)
         if info:
-            wcs = WebCommandingServer(info.address, info.port)
             try:
+                wcs = WebCommandingServer(info.address, info.port)
                 wcs.update()
                 if self.is_blacklisted(wcs):
                     key = 'Blacklisted'
@@ -247,6 +247,8 @@ class VideoStreamManager(HTTPServer):
                 key = 'Incompatible'
             self.web_commanding_servers[key][name] = wcs
             logging.info('Found {} {} @ {}:{}'.format(key, name, wcs.address, wcs.port))
+        else:
+            logging.error('Failed to retrieve service information for ' + name)
 
     def remove_service(self, zeroconf, service, name):
         for servers in self.web_commanding_servers.values():
