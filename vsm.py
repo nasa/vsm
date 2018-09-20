@@ -245,6 +245,7 @@ class VideoStreamManager(HTTPServer):
                     key = 'Active'
             except:
                 key = 'Incompatible'
+                logging.error(traceback.format_exc())
             self.web_commanding_servers[key][name] = wcs
             logging.info('Found {} {} @ {}:{}'.format(key, name, wcs.address, wcs.port))
         else:
