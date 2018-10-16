@@ -78,6 +78,10 @@ class WebCommandingServer(object):
 
     def __init__(self, address, port):
         self.address = socket.inet_ntoa(address)
+        try:
+            self.hostname = socket.gethostbyaddr(self.address)[0]
+        except socket.herror as e:
+            self.hostname = e.strerror
         self.port = port
         self.video_address = 'http://' + self.address + ':' + str(self.port) + '/video'
         self.cameras = get_cameras(self.address, port)
@@ -133,7 +137,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                     wcs.update()
                 except:
                     pass
-                wcs_element = SubElement(group, 'wcs', host=socket.gethostbyaddr(wcs.address)[0] + ' (' + wcs.address + ')', port=str(wcs.port), num_clients=str(wcs.num_clients))
+                wcs_element = SubElement(group, 'wcs', host=wcs.hostname + ' (' + wcs.address + ')', port=str(wcs.port), num_clients=str(wcs.num_clients))
                 for camera in wcs.cameras:
                     SubElement(wcs_element, 'camera', rendered=str(camera in wcs.rendered_cameras)).text = camera
         self.send_xml(root, 'status')
