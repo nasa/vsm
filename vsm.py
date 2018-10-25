@@ -30,6 +30,9 @@ def send_wcs_command(command, host='localhost', port=wcs_port):
                           urllib.urlencode({'edge_command': command}))
     return ElementTree.fromstring(page.read()).find('result').text
 
+def is_headless(host='localhost', port=wcs_port):
+    return float(send_wcs_command('doug.cmd get_fps', host, port)) == 0
+
 def get_client_count(host='localhost', port=wcs_port):
     return int(send_wcs_command('get_global_var wcs_num_clients', host, port))
 
@@ -39,12 +42,10 @@ def get_cameras(host='localhost', port=wcs_port):
 def get_update(host='localhost', port=wcs_port):
     command = """
         set result "\["
-        if [doug.cmd get_fps != 0] {
-            foreach view [doug.display get -views] {
-                set view [lindex [split $view '.'] end]
-                if {[string first "HIDE" [split [doug.view $view get -flags]]] == -1} {
-                    append result '[doug.view $view get -camera]',
-                }
+        foreach view [doug.display get -views] {
+            set view [lindex [split $view '.'] end]
+            if {[string first "HIDE" [split [doug.view $view get -flags]]] == -1} {
+                append result '[doug.view $view get -camera]',
             }
         }
         return "[get_global_var wcs_num_clients], $result]"
@@ -94,6 +95,9 @@ class WebCommandingServer(object):
 
     def set_camera(self, camera):
         set_camera(camera, self.address, self.port)
+
+    def is_headless(self):
+        return is_headless(self.address, self.port)
 
 class RequestHandler(BaseHTTPRequestHandler):
 
@@ -219,7 +223,7 @@ class VideoStreamManager(HTTPServer):
                         for entry in self.resolve_name(name)])
 
         HTTPServer.__init__(self, ('0.0.0.0', self.configuration['port']), RequestHandler)
-        self.web_commanding_servers = {'Active': {}, 'Incompatible': {}, 'Blacklisted': {}}
+        self.web_commanding_servers = {'Active': {}, 'Incompatible': {}, 'Blacklisted': {}, 'Headless': {}}
         self.browser = ServiceBrowser(Zeroconf(self.configuration['interfaces']), '_doug_wcs._tcp.local.', self)
         logging.info('VSM running at http://{}:{}'.format(*self.server_address))
         self.serve_forever()
@@ -242,10 +246,12 @@ class VideoStreamManager(HTTPServer):
         if info:
             try:
                 wcs = WebCommandingServer(info.address, info.port)
-                wcs.update()
                 if self.is_blacklisted(wcs):
                     key = 'Blacklisted'
+                elif wcs.is_headless():
+                    key = 'Headless'
                 else:
+                    wcs.update()
                     key = 'Active'
             except:
                 key = 'Incompatible'
