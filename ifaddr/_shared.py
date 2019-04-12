@@ -21,7 +21,7 @@
 
 import ctypes
 import socket
-import ipaddress
+from ipaddress import ipaddress
 import platform
 
 class Adapter(object):

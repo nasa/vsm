@@ -22,7 +22,7 @@
 import sys
 import os
 import ctypes.util
-import ipaddress
+from ipaddress import ipaddress
 import collections
 
 import ifaddr._shared as shared
