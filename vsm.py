@@ -20,9 +20,6 @@ import urllib
 import urlparse
 
 vsm_home = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
-
-logging.basicConfig(filename=vsm_home + os.sep + 'log.txt', level=logging.DEBUG, format='[%(asctime)s.%(msecs)03d %(levelname)s] %(message)s', datefmt='%m/%d/%Y %I:%M:%S')
-
 wcs_port = 8080
 
 def send_wcs_command(command, host='localhost', port=wcs_port):
@@ -198,22 +195,28 @@ class RequestHandler(BaseHTTPRequestHandler):
 class VideoStreamManager(HTTPServer):
 
     def __init__(self, config_file=None):
-        default_port = 12345
+        # default configuration
+        self.configuration = {'interfaces': InterfaceChoice.All,
+                              'log_file': vsm_home + os.sep + 'log.txt',
+                              'port': 12345}
+
+        # overwrite defaults with config file contents
         if config_file:
             with open(config_file) as config_json:
-                self.configuration = json.load(config_json)
-            if 'port' not in self.configuration:
-                self.configuration['port'] = default_port
-            else:
+                self.configuration.update(json.load(config_json))
+                # in case the port was specified as a string
                 self.configuration['port'] = int(self.configuration['port'])
-            if 'interfaces' not in self.configuration:
-                self.configuration['interfaces'] = InterfaceChoice.All
-            if 'whitelist' not in self.configuration and 'blacklist' not in self.configuration:
-                self.configuration['whitelist'] = 'localhost'
-        else:
-            self.configuration = {'interfaces': InterfaceChoice.All,
-                                  'port': default_port,
-                                  'whitelist': 'localhost'}
+
+        # This isn't in the initial assignment because the presence of a whitelist
+        # causes any blacklist to be ignored, which would make it impossible to
+        # specify only a blacklist in the config file.
+        if 'whitelist' not in self.configuration and 'blacklist' not in self.configuration:
+            self.configuration['whitelist'] = 'localhost'
+
+        logging.basicConfig(
+          filename=self.configuration['log_file'], level=logging.DEBUG,
+          format='[%(asctime)s.%(msecs)03d %(levelname)s] %(message)s',
+          datefmt='%m/%d/%Y %I:%M:%S')
 
         for machine_list in ['whitelist', 'blacklist']:
             if machine_list in self.configuration:

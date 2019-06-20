@@ -1,5 +1,6 @@
 {
     "port": 12345,
+    "log_file": "absolute_or_relative_path",
     "whitelist": ["one_or_more", "machine_names_or_ip_addresses"],
     "blacklist": ["some_machine", "123.456.789.012"]
 }
