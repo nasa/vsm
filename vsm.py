@@ -208,6 +208,8 @@ class VideoStreamManager(HTTPServer):
                 self.configuration['port'] = int(self.configuration['port'])
             if 'interfaces' not in self.configuration:
                 self.configuration['interfaces'] = InterfaceChoice.All
+            if 'whitelist' not in self.configuration and 'blacklist' not in self.configuration:
+                self.configuration['whitelist'] = 'localhost'
         else:
             self.configuration = {'interfaces': InterfaceChoice.All,
                                   'port': default_port,
