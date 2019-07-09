@@ -133,6 +133,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.wfile.write('<a href="streams">streams</a>')
 
     def send_status_page(self):
+        self.server.check_headless_servers()
         self.send_response(200)
         self.end_headers()
         root = Element('web_commanding_servers')
@@ -277,7 +278,19 @@ class VideoStreamManager(HTTPServer):
             servers.pop(name, None)
         logging.info('Lost {}'.format(name))
 
+    def check_headless_servers(self):
+        for name, wcs in self.web_commanding_servers['Headless'].items():
+            try:
+                if (not wcs.is_headless()):
+                    del self.web_commanding_servers['Headless'][name]
+                    self.web_commanding_servers['Active'][name] = wcs
+                    logging.info('Moved {} @ {}:{} from Headless to Active'
+                      .format(name, wcs.address, wcs.port))
+            except:
+                self.remove_service(None, None, name)
+
     def update_web_commanding_servers(self):
+        self.check_headless_servers()
         for name, wcs in self.web_commanding_servers['Active'].items():
             try:
                 wcs.update()
