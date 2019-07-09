@@ -82,10 +82,15 @@ class WebCommandingServer(object):
             self.hostname = e.strerror
         self.port = port
         self.video_address = 'http://' + self.address + ':' + str(self.port) + '/video'
-        self.cameras = get_cameras(self.address, port)
-        self.views = get_views(self.address, port)
-        self.num_clients = 'unsupported'
+        self.views = []
+        self.cameras = []
         self.rendered_cameras = []
+        self.num_clients = 'unsupported'
+
+    def initialize(self):
+        self.cameras = get_cameras(self.address, self.port)
+        self.views = get_views(self.address, self.port)
+        self.update()
 
     def update(self):
         self.num_clients, self.rendered_cameras = get_update(self.address, self.port)
@@ -249,18 +254,19 @@ class VideoStreamManager(HTTPServer):
     def add_service(self, zeroconf, service, name):
         info = zeroconf.get_service_info(service, name)
         if info:
-            try:
-                wcs = WebCommandingServer(info.address, info.port)
-                if self.is_blacklisted(wcs):
-                    key = 'Blacklisted'
-                elif wcs.is_headless():
-                    key = 'Headless'
-                else:
-                    wcs.update()
-                    key = 'Active'
-            except:
-                key = 'Incompatible'
-                logging.error(traceback.format_exc())
+            wcs = WebCommandingServer(info.address, info.port)
+            if self.is_blacklisted(wcs):
+                key = 'Blacklisted'
+            else:
+                try:
+                    wcs.initialize()
+                    if wcs.is_headless():
+                        key = 'Headless'
+                    else:
+                        key = 'Active'
+                except:
+                    key = 'Incompatible'
+                    logging.error(traceback.format_exc())
             self.web_commanding_servers[key][name] = wcs
             logging.info('Found {} {} @ {}:{}'.format(key, name, wcs.address, wcs.port))
         else:
