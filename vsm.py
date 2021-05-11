@@ -1,10 +1,25 @@
-#!/usr/bin/env python
+#!/bin/env sh
 
-from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
+# The name of the Python executable and which version of Python it invokes is
+# not standardized, making a shebang unreliable. We therefore try `python3`
+# first and then fall back to `python`.
+# See https://www.python.org/dev/peps/pep-0394/
+
+"""":
+if type python3 > /dev/null 2>&1
+then
+    exec python3 "$0" "$@"
+else
+    exec python "$0" "$@"
+fi
+exit 1
+""" #"
+
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from urllib.parse import urlparse
 from xml.etree import ElementTree
 from xml.etree.ElementTree import Element, SubElement
 from xml.dom import minidom
-from zeroconf import zeroconf
 from zeroconf.zeroconf import InterfaceChoice, ServiceBrowser, Zeroconf
 import ast
 import ifaddr
@@ -17,7 +32,6 @@ import socket
 import sys
 import traceback
 import urllib
-import urlparse
 
 vsm_home = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
 wcs_port = 8080
@@ -195,7 +209,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.end_headers()
             self.wfile.write(xsl.read())
-        except Exception, e:
+        except Exception as e:
             self.send_error(404, str(e))
 
 class VideoStreamManager(HTTPServer):
@@ -226,7 +240,7 @@ class VideoStreamManager(HTTPServer):
 
         for machine_list in ['whitelist', 'blacklist']:
             if machine_list in self.configuration:
-                if isinstance(self.configuration[machine_list], (str, unicode)):
+                if isinstance(self.configuration[machine_list], str):
                     self.configuration[machine_list] = self.resolve_name(self.configuration[machine_list])
                 else:
                     self.configuration[machine_list] = set([entry
@@ -345,5 +359,5 @@ if __name__ == '__main__':
             VideoStreamManager()
     except Exception as e:
         sys.stdout.write('[Video Stream Manager] Failed to start: ')
-        print e
+        print(e)
         logging.error(traceback.format_exc())
