@@ -17,10 +17,17 @@ xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
               </tr>
               <xsl:for-each select="wcs">
                 <xsl:sort select="."/>
-                <xsl:sort select="./@host"/>
-                <xsl:sort select="./@port"/>
+                <xsl:sort select="./@port" data-type="number"/>
                 <tr>
-                  <td><xsl:value-of select="./@host"/></td>
+                  <td style="white-space:pre">
+                    <xsl:for-each select="address">
+                      <xsl:sort select="./@ip" data-type="number"/>
+                      <xsl:value-of select="./@host"/>
+                      <xsl:text> (</xsl:text>
+                      <xsl:value-of select="./@ip"/>
+                      <xsl:text>)&#xa;</xsl:text>
+                    </xsl:for-each>
+                  </td>
                   <td><xsl:value-of select="./@port"/></td>
                   <td><xsl:value-of select="./@num_clients"/></td>
                   <td>
