@@ -1,4 +1,4 @@
-#!/bin/env sh
+#!/usr/bin/env python3
 
 # The name of the Python executable and which version of Python it invokes is
 # not standardized, making a shebang unreliable. We therefore try `python3`
@@ -21,7 +21,7 @@ from urllib.request import urlopen
 from xml.etree import ElementTree
 from xml.etree.ElementTree import Element, SubElement
 from xml.dom import minidom
-from zeroconf.zeroconf import InterfaceChoice, ServiceBrowser, Zeroconf
+from zeroconf import InterfaceChoice, ServiceBrowser, Zeroconf
 import ast
 import ifaddr
 import inspect
@@ -121,6 +121,9 @@ class WebCommandingServer(object):
 
     def is_headless(self):
         return is_headless(self.addresses[0], self.port)
+
+    def update_service():
+        pass
 
 class RequestHandler(BaseHTTPRequestHandler):
 
@@ -365,6 +368,10 @@ class VideoStreamManager(HTTPServer):
         # All servers are busy rendering different cameras for other clients.
         # The requested camera cannot be rendered at this time.
         return True, None
+
+    def update_service():
+        pass
+            
 
 if __name__ == '__main__':
     try:
