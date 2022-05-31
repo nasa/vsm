@@ -1,19 +1,14 @@
 #!/usr/bin/env python3
-
-# The name of the Python executable and which version of Python it invokes is
-# not standardized, making a shebang unreliable. We therefore try `python3`
-# first and then fall back to `python`.
-# See https://www.python.org/dev/peps/pep-0394/
-
-"""":
-if type python3 > /dev/null 2>&1
-then
-    exec python3 "$0" "$@"
-else
-    exec python "$0" "$@"
-fi
-exit 1
-""" #"
+import sys, os
+import ifaddr
+import inspect
+import json
+import logging
+import operator
+import socket
+import struct
+import traceback
+import ast
 
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, urlencode
@@ -21,18 +16,7 @@ from urllib.request import urlopen
 from xml.etree import ElementTree
 from xml.etree.ElementTree import Element, SubElement
 from xml.dom import minidom
-from zeroconf import InterfaceChoice, ServiceBrowser, Zeroconf
-import ast
-import ifaddr
-import inspect
-import json
-import logging
-import operator
-import os
-import socket
-import struct
-import sys
-import traceback
+from zeroconf.zeroconf import InterfaceChoice, ServiceBrowser, Zeroconf
 
 vsm_home = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
 wcs_port = 8080
@@ -121,9 +105,6 @@ class WebCommandingServer(object):
 
     def is_headless(self):
         return is_headless(self.addresses[0], self.port)
-
-    def update_service():
-        pass
 
 class RequestHandler(BaseHTTPRequestHandler):
 
@@ -368,10 +349,6 @@ class VideoStreamManager(HTTPServer):
         # All servers are busy rendering different cameras for other clients.
         # The requested camera cannot be rendered at this time.
         return True, None
-
-    def update_service():
-        pass
-            
 
 if __name__ == '__main__':
     try:
